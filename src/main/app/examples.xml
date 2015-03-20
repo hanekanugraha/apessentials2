@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" version="EE-3.6.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <http:request-config name="HTTP_Request_Configuration" host="localhost" port="8082" doc:name="HTTP Request Configuration"/>
+ 
+	<flow name="apessentialsFlow">
+		<http:listener config-ref="HTTP_Listener_Configuration"
+			path="/" doc:name="HTTP" />
+
+        <flow-ref name="subflow1" doc:name="subflow1"/>
+        <flow-ref name="subflow2" doc:name="subflow 2"/>
+        <async doc:name="Async">
+            <flow-ref name="flow2" doc:name="flow2"/>
+        </async>
+		<logger level="INFO" doc:name="Logger"
+			message="#['Name: ' + message.outboundProperties.qpname + ' Type: ' + flowVars.qptype + ' Color: ' + sessionVars.color]" />
+	</flow>
+
+	<flow name="postTopicMessagesFlow">
+		<http:listener config-ref="HTTP_Listener_Configuration"
+			path="/jms" allowedMethods="GET" doc:name="HTTP" />
+		<set-payload
+			value="#[message.inboundProperties.'http.query.params'.message]"
+			doc:name="Set Messages" />
+		<set-property propertyName="Name" value="Hoho" doc:name="Property" />
+		<jms:outbound-endpoint topic="apessentials"
+			connector-ref="Active_MQ" doc:name="JMS" />
+	</flow>
+    <flow name="flow2">
+        <set-payload value="HELLO WORLD FLOW2" doc:name="Set Payload"/>
+        <set-session-variable variableName="color" value="black" doc:name="Session Variable"/>
+    </flow>
+    <sub-flow name="subflow1">
+        <set-payload value="#[&quot;Hello World&quot;.toUpperCase()]" doc:name="Set Payload"/>
+        <set-property propertyName="qpname" value="#[message.inboundProperties.'http.query.params'.name]" doc:name="Property"/>
+    </sub-flow>
+    <sub-flow name="subflow2">
+        <set-variable variableName="qptype" value="#[message.inboundProperties.'http.query.params'.type]" doc:name="Variable"/>
+    </sub-flow>
+
+	<flow name="getTopicMessagesFlow">
+		<jms:inbound-endpoint topic="apessentials"
+			connector-ref="Active_MQ" doc:name="JMS" />
+		<logger message="#[message.inboundProperties.name + &quot;: &quot;+ payload]"
+			level="INFO" doc:name="Logger" />
+	</flow>
+</mule>
